@@ -1,0 +1,5 @@
+{
+  "per_diem": 60,
+  "receipt_required_over": 25,
+  "restricted_categories": ["Gifts > $100"]
+}

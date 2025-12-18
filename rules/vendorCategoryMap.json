@@ -1,0 +1,8 @@
+{
+  "uber|lyft": "Travel",
+  "delta|united|airlines|southwest": "Travel",
+  "starbucks|coffee|peet": "Meals",
+  "amazon": "Supplies",
+  "staples|office depot": "Supplies",
+  "hotel|marriott|hilton|hyatt": "Lodging"
+}
