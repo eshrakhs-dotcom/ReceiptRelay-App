@@ -20,9 +20,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <div className="title">ReceiptRelay</div>
               <div className="subtitle">Receipts → approvals → export in under a minute.</div>
             </div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <a className="ghost" href="/landing">Guide</a>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <a className="ghost" href="/">Inbox</a>
+              <a className="ghost" href="/upload">Upload</a>
+              <a className="ghost" href="/?status=approved">Approved</a>
+              <a className="ghost" href="/export">Export</a>
               <a className="ghost" href="/settings/policy">Policies</a>
+              <a className="ghost" href="/landing">Guide</a>
             </div>
           </header>
           <main>{children}</main>
