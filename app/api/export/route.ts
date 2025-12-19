@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import PDFDocument from 'pdfkit';
 import { getSupabaseService } from '@/lib/supabaseClient';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -36,7 +35,10 @@ function toCsv(rows: any[]) {
   return `${header}\n${body}`;
 }
 
-function toPdf(rows: any[], month: string) {
+async function toPdf(rows: any[], month: string) {
+  // Dynamic import to avoid build-time type resolution issues on pdfkit.
+  const { default: PDFDocument } = await import('pdfkit');
+  // @ts-ignore - shim provided in types/pdfkit.d.ts
   const doc = new PDFDocument({ margin: 40 });
   const buffers: Buffer[] = [];
   doc.on('data', (b) => buffers.push(b));
