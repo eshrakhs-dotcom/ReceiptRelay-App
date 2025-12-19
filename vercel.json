@@ -1,7 +1,8 @@
 {
+  "version": 2,
+  "framework": "nextjs",
   "functions": {
-    "api/**": {
-      "runtime": "nodejs20.x"
-    }
+    "api/**": { "runtime": "nodejs20.x" },
+    "app/**": { "runtime": "nodejs20.x" }
   }
 }
