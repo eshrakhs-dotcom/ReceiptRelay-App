@@ -24,6 +24,7 @@
     "node": ">=20 <21"
   },
   "devDependencies": {
+    "@types/pdfkit": "^0.13.4",
     "@types/node": "^22.7.4",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",

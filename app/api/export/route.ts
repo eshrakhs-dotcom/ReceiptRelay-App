@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import PDFDocument from 'pdfkit';
 import { getSupabaseService } from '@/lib/supabaseClient';
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 async function fetchMonth(month: string) {
   const supabase = getSupabaseService();
