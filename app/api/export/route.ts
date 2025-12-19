@@ -37,6 +37,8 @@ function toCsv(rows: any[]) {
 
 async function toPdf(rows: any[], month: string) {
   // Dynamic import to avoid build-time type resolution issues on pdfkit.
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-expect-error pdfkit has no bundled types; shim lives in types/pdfkit.d.ts
   const { default: PDFDocument } = await import('pdfkit');
   // @ts-ignore - shim provided in types/pdfkit.d.ts
   const doc = new PDFDocument({ margin: 40 });
