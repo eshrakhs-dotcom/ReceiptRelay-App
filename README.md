@@ -1,5 +1,6 @@
 # ReceiptRelay (MVP)
 
+
 Next.js + Supabase implementation of the PRD. Focused on: upload → OCR → parsing → policy flags → approve → export.
 
 ## Getting started
@@ -28,3 +29,4 @@ Next.js + Supabase implementation of the PRD. Focused on: upload → OCR → par
 - OCR uses `tesseract.js` locally (node runtime); swap with Supabase Edge Function if desired.
 - CSV export matches PRD column order. PDF summarises totals, categories, vendors, and flags.
 - Feature flag: set `LLM_ENABLED=true` to enable `/api/ai` responses.
+
