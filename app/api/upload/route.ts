@@ -50,7 +50,11 @@ export async function POST(req: Request) {
       }
     }
 
-    await ingestOcr(receiptId, text, uploaded ? path : `local-fallback/${receiptId}.${ext}`, user.id);
+    // Fire-and-forget ingest to avoid blocking response; inbox row is already created.
+    ingestOcr(receiptId, text, uploaded ? path : `local-fallback/${receiptId}.${ext}`, user.id).catch((e) =>
+      console.warn('ingest failed', e)
+    );
+
     return NextResponse.json({ receipt_id: receiptId, status: 'inbox', uploaded }, { status: 201 });
   } catch (err: any) {
     console.error('upload failed', err);
