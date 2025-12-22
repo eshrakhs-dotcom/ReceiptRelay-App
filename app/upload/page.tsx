@@ -23,8 +23,7 @@ export default function UploadPage() {
         /* non-JSON response */
       }
       if (res.ok && data.receipt_id) {
-        setMessage('Uploaded. Redirecting to receipt…');
-        window.location.href = `/receipt/${data.receipt_id}`;
+        setMessage('Uploaded. Processing… (check Inbox)');
       } else {
         const bodyText = !res.ok ? (await res.text().catch(() => '')) : '';
         setMessage(data.error || bodyText || 'Upload failed');
@@ -40,11 +39,18 @@ export default function UploadPage() {
     <div className="card">
       <div className="title">Upload receipt</div>
       <p className="small">Images or PDFs. We run OCR, parse fields, and flag policies.</p>
-      <form onSubmit={handleSubmit} className="grid" style={{ gap: 12 }}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSubmit(e);
+        }}
+        className="grid"
+        style={{ gap: 12 }}
+      >
         <div className="upload-drop">
           <input type="file" accept="image/*,application/pdf" onChange={(e) => setFile(e.target.files?.[0] || null)} />
         </div>
-        <button className="button" type="submit" disabled={!file || loading}>
+        <button className="button" type="button" onClick={handleSubmit} disabled={!file || loading}>
           {loading ? 'Uploading…' : 'Upload'}
         </button>
       </form>
