@@ -11,16 +11,28 @@ export default function UploadPage() {
     e.preventDefault();
     if (!file) return;
     setLoading(true);
+    setMessage('');
     const form = new FormData();
     form.append('file', file);
-    const res = await fetch('/api/upload', { method: 'POST', body: form });
-    const data = await res.json();
-    setLoading(false);
-    if (res.ok) {
-      setMessage('Uploaded. Redirecting to receipt…');
-      window.location.href = `/receipt/${data.receipt_id}`;
-    } else {
-      setMessage(data.error || 'Upload failed');
+    try {
+      const res = await fetch('/api/upload', { method: 'POST', body: form });
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        /* non-JSON response */
+      }
+      if (res.ok && data.receipt_id) {
+        setMessage('Uploaded. Redirecting to receipt…');
+        window.location.href = `/receipt/${data.receipt_id}`;
+      } else {
+        const bodyText = !res.ok ? (await res.text().catch(() => '')) : '';
+        setMessage(data.error || bodyText || 'Upload failed');
+      }
+    } catch (err: any) {
+      setMessage(err?.message || 'Upload failed. Check connection and try again.');
+    } finally {
+      setLoading(false);
     }
   }
 
