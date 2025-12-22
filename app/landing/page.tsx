@@ -20,9 +20,10 @@ export default function LandingPage() {
           <div className="title" style={{ fontSize: 18 }}>How to get value fast</div>
           <ol className="small" style={{ margin: 0, paddingLeft: 18, color: 'var(--text)', lineHeight: 1.7 }}>
             <li>Drop a receipt on <strong>Upload</strong> (image/PDF).</li>
-            <li>In <strong>Inbox</strong>, edit anything off, check flags, hit Approve.</li>
-            <li>If duplicate flagged, click through and mark legitimate if needed.</li>
-            <li>Head to <strong>Export</strong>, pick month, grab CSV or PDF summary.</li>
+            <li>It lands in <strong>Processing</strong> while we OCR + parse + run policy checks.</li>
+            <li>Most receipts auto-approve if they’re clean and low-risk.</li>
+            <li>Anything flagged shows up in <strong>Needs review</strong> — open it, fix fields if needed, then Approve / Reject.</li>
+            <li>Head to <strong>Export</strong>, pick a month, download CSV or PDF summary (exports include Approved only).</li>
           </ol>
         </div>
 
@@ -30,9 +31,10 @@ export default function LandingPage() {
           <div className="title" style={{ fontSize: 18 }}>Why it’s different</div>
           <ul className="small" style={{ margin: 0, paddingLeft: 18, color: 'var(--text)', lineHeight: 1.7 }}>
             <li>Auto-OCR with sensible parsing (vendor/date/amount/tax).</li>
-            <li>Policy nudges baked in: per-diem, receipt threshold, restricted categories.</li>
+            <li>Auto-approve with exceptions: only risky/uncertain receipts require humans.</li>
+            <li>Policy nudges baked in: per-diem, receipt thresholds, restricted categories, tip caps.</li>
             <li>Duplicate detection via vendor+date+amount hash.</li>
-            <li>Exports match PRD order; PDF summary with totals, categories, flag counts.</li>
+            <li>Exports match PRD order; PDF summary with totals, categories, and flag counts.</li>
           </ul>
         </div>
       </div>
@@ -40,9 +42,8 @@ export default function LandingPage() {
       <div className="card" style={{ background: '#0f1118', borderColor: '#20263a' }}>
         <div className="title" style={{ fontSize: 18 }}>Quick navigation</div>
         <div className="flex" style={{ gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
-          <a className="badge" href="/">Inbox</a>
+          <a className="badge" href="/">Inbox (Needs review / Processing / Approved)</a>
           <a className="badge" href="/upload">Upload</a>
-          <a className="badge" href="/?status=approved">Approved</a>
           <a className="badge" href="/export">Export</a>
           <a className="badge" href="/settings/policy">Policies</a>
         </div>
@@ -54,7 +55,19 @@ export default function LandingPage() {
         <div className="grid" style={{ gap: 10 }}>
           <div>
             <div className="small" style={{ color: '#c5c8d8' }}>“My PDF uploaded but fields are empty?”</div>
-            <div className="small">Browser OCR runs on images; PDFs are stored and can be edited manually.</div>
+            <div className="small">Browser OCR runs on images; PDFs are stored and can be edited manually (or parsed server-side if enabled).</div>
+          </div>
+          <div>
+            <div className="small" style={{ color: '#c5c8d8' }}>“Why did this auto-approve?”</div>
+            <div className="small">It met thresholds (clean fields + high confidence + no policy flags).</div>
+          </div>
+          <div>
+            <div className="small" style={{ color: '#c5c8d8' }}>“Why is it in Needs review?”</div>
+            <div className="small">Missing fields, low confidence, high amount, uncategorized spend, policy flags, or possible duplicate.</div>
+          </div>
+          <div>
+            <div className="small" style={{ color: '#c5c8d8' }}>“Why doesn’t it show in Export?”</div>
+            <div className="small">Export includes Approved receipts only for the selected month (based on receipt date or uploaded date fallback).</div>
           </div>
           <div>
             <div className="small" style={{ color: '#c5c8d8' }}>“How are categories chosen?”</div>
