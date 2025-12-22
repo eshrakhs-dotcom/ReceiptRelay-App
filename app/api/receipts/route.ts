@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { listReceipts, updateReceipt } from '@/lib/receiptStore';
+import { clearReceipts, listReceipts, updateReceipt } from '@/lib/receiptStore';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,5 +14,10 @@ export async function PATCH(req: Request) {
   const { id, status } = body;
   if (!id || !status) return NextResponse.json({ error: 'id and status required' }, { status: 400 });
   updateReceipt(id, { status });
+  return NextResponse.json({ ok: true });
+}
+
+export async function DELETE() {
+  clearReceipts();
   return NextResponse.json({ ok: true });
 }

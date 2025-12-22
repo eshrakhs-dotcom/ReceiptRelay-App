@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createReceiptFromUpload, ensureUser, ingestOcr, cryptoRandomId } from '@/lib/data';
 import { getSupabaseService } from '@/lib/supabaseClient';
 import { runOcr } from '@/lib/ocr';
-import { addReceipt } from '@/lib/receiptStore';
+import { addReceipt, updateReceipt } from '@/lib/receiptStore';
 
 export const runtime = 'nodejs';
 
@@ -66,6 +66,18 @@ export async function POST(req: Request) {
         ingestOcr(receiptId, text, uploaded ? path : `local-fallback/${receiptId}.${ext}`, user.id).catch((e) =>
           console.warn('ingest failed', e)
         );
+
+        // Demo: mark as needs_review with fake parsed fields after 2s.
+        setTimeout(() => {
+          updateReceipt(receiptId, {
+            status: 'needs_review',
+            vendor: 'Demo Vendor',
+            date: new Date().toISOString().slice(0, 10),
+            amount: 42.5,
+            category: 'Meals',
+            policyFlags: ['receipt_required']
+          });
+        }, 2000);
       } catch (bgErr) {
         console.error('upload background processing failed', bgErr);
       }

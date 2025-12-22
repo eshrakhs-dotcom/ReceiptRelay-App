@@ -1,8 +1,13 @@
-type ReceiptRecord = {
+export type ReceiptRecord = {
   id: string;
   filename: string;
-  status: 'processing' | 'inbox' | 'approved' | 'rejected';
+  status: 'processing' | 'needs_review' | 'approved' | 'rejected';
   uploadedAt: string;
+  vendor?: string;
+  date?: string;
+  amount?: number;
+  category?: string;
+  policyFlags?: string[];
 };
 
 const globalAny = globalThis as any;
@@ -26,4 +31,8 @@ export function updateReceipt(id: string, patch: Partial<ReceiptRecord>) {
   if (idx !== -1) {
     items[idx] = { ...items[idx], ...patch };
   }
+}
+
+export function clearReceipts() {
+  globalAny.__RECEIPTS = [] as ReceiptRecord[];
 }
