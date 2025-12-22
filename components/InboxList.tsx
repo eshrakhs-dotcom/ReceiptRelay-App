@@ -20,11 +20,11 @@ export default function InboxList() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState<'needs_review' | 'approved' | 'processing'>('needs_review');
-
   const lastHash = useRef<string>('');
+  const firstLoad = useRef(true);
 
   const load = async () => {
-    setLoading(true);
+    if (firstLoad.current) setLoading(true);
     setError('');
     try {
       const res = await fetch(`/api/receipts?status=${statusFilter}`, { cache: 'no-store' });
@@ -40,7 +40,10 @@ export default function InboxList() {
     } catch (e: any) {
       setError(e?.message || 'Failed to load receipts');
     } finally {
-      setLoading(false);
+      if (firstLoad.current) {
+        setLoading(false);
+        firstLoad.current = false;
+      }
     }
   };
 
