@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSupabaseService } from '@/lib/supabaseClient';
+import { listReceipts } from '@/lib/receiptStore';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -7,22 +7,12 @@ export async function GET(req: Request) {
   if (!month || !/^\d{4}-\d{2}$/.test(month)) {
     return NextResponse.json({ error: 'invalid month' }, { status: 400 });
   }
-  const supabase = getSupabaseService();
-  const { data, error } = await supabase
-    .from('receipts')
-    .select('id, amount, policy_flags, date, status, category')
-    .eq('status', 'approved')
-    .gte('date', `${month}-01`)
-    .lte('date', `${month}-31`);
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-  const rows = data || [];
-  const approved = rows.length;
-  const amount = rows.reduce((acc, r) => acc + (Number((r as any).amount) || 0), 0);
-  const flagged = rows.reduce((acc, r) => {
-    const flags = ((r as any).policy_flags as any[]) || [];
-    return acc + flags.length;
-  }, 0);
+  const monthRows = listReceipts().filter((r) => {
+    const m = (r.date || r.uploadedAt || '').slice(0, 7);
+    return r.status === 'approved' && m === month;
+  });
+  const approved = monthRows.length;
+  const amount = monthRows.reduce((acc, r) => acc + (Number(r.amount) || 0), 0);
+  const flagged = monthRows.reduce((acc, r) => acc + ((r.policyFlags || []).length || 0), 0);
   return NextResponse.json({ month, approved, flagged, amount: Number(amount.toFixed(2)) });
 }

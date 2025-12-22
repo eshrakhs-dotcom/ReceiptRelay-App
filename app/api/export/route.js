@@ -29,7 +29,15 @@ function toCsv(rows) {
 export async function GET(req) {
   const url = new URL(req.url);
   const format = (url.searchParams.get('format') || 'csv').toLowerCase();
-  const approved = listReceipts().filter((r) => r.status === 'approved');
+  const month = url.searchParams.get('month');
+  const approved = listReceipts().filter((r) => {
+    if (r.status !== 'approved') return false;
+    if (month && /^\d{4}-\d{2}$/.test(month)) {
+      const m = (r.date || r.uploadedAt || '').slice(0, 7);
+      return m === month;
+    }
+    return true;
+  });
   if (!approved.length) {
     return NextResponse.json({ error: 'no approved receipts' }, { status: 400 });
   }
@@ -38,10 +46,9 @@ export async function GET(req) {
     return new NextResponse(csv, {
       headers: {
         'Content-Type': 'text/csv',
-        'Content-Disposition': 'attachment; filename="export.csv"'
+        'Content-Disposition': `attachment; filename="export_${month || 'all'}.csv"`
       }
     });
   }
-  // Simple PDF-less fallback for now.
   return NextResponse.json({ ok: true, count: approved.length, message: 'PDF export not implemented in demo' });
 }

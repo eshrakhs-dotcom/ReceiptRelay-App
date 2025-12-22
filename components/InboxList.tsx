@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
 type Receipt = {
@@ -21,6 +21,8 @@ export default function InboxList() {
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState<'needs_review' | 'approved' | 'processing'>('needs_review');
 
+  const lastHash = useRef<string>('');
+
   const load = async () => {
     setLoading(true);
     setError('');
@@ -28,7 +30,13 @@ export default function InboxList() {
       const res = await fetch(`/api/receipts?status=${statusFilter}`, { cache: 'no-store' });
       if (!res.ok) throw new Error(`load failed (${res.status})`);
       const data = await res.json();
-      setReceipts(data.receipts || []);
+      const next = data.receipts || [];
+      const hash = JSON.stringify(next);
+      // Only update state if changed to reduce flicker.
+      if (hash !== lastHash.current) {
+        lastHash.current = hash;
+        setReceipts(next);
+      }
     } catch (e: any) {
       setError(e?.message || 'Failed to load receipts');
     } finally {
