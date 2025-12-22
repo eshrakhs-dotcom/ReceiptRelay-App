@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createReceiptFromUpload, ensureUser, ingestOcr, cryptoRandomId } from '@/lib/data';
 import { getSupabaseService } from '@/lib/supabaseClient';
 import { runOcr } from '@/lib/ocr';
+import { addReceipt } from '@/lib/receiptStore';
 
 export const runtime = 'nodejs';
 
@@ -12,9 +13,10 @@ export async function POST(req: Request) {
     if (!file) return NextResponse.json({ error: 'file missing' }, { status: 400 });
 
     const receiptId = cryptoRandomId('rcpt');
+    addReceipt({ id: receiptId, filename: file.name, status: 'processing', uploadedAt: new Date().toISOString() });
 
     // Respond immediately to avoid pending UI.
-    const response = NextResponse.json({ receipt_id: receiptId, status: 'processing' }, { status: 201 });
+    const response = NextResponse.json({ receiptId, status: 'processing' }, { status: 201 });
 
     // Background work: best-effort store + OCR + ingest.
     (async () => {
