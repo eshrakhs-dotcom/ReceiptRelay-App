@@ -8,6 +8,7 @@ export type ReceiptRecord = {
   amount?: number;
   category?: string;
   policyFlags?: string[];
+  confidenceScore?: number;
 };
 
 const globalAny = globalThis as any;
@@ -30,7 +31,9 @@ export function updateReceipt(id: string, patch: Partial<ReceiptRecord>) {
   const idx = items.findIndex((r: ReceiptRecord) => r.id === id);
   if (idx !== -1) {
     items[idx] = { ...items[idx], ...patch };
+    return items[idx];
   }
+  return null;
 }
 
 export function clearReceipts() {

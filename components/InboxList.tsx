@@ -19,12 +19,13 @@ export default function InboxList() {
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'needs_review' | 'approved' | 'processing'>('needs_review');
 
   const load = async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/receipts', { cache: 'no-store' });
+      const res = await fetch(`/api/receipts?status=${statusFilter}`, { cache: 'no-store' });
       if (!res.ok) throw new Error(`load failed (${res.status})`);
       const data = await res.json();
       setReceipts(data.receipts || []);
@@ -39,10 +40,15 @@ export default function InboxList() {
     load();
     const t = setInterval(load, 2000);
     return () => clearInterval(t);
-  }, []);
+  }, [statusFilter]);
 
   const resetDemo = async () => {
     await fetch('/api/receipts', { method: 'DELETE' });
+    load();
+  };
+
+  const patchStatus = async (id: string, status: string) => {
+    await fetch(`/api/receipts/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
     load();
   };
 
@@ -58,6 +64,19 @@ export default function InboxList() {
     <div className="grid two-col">
       {loading && <div className="card">Loading…</div>}
       {error && <div className="card banner warn">{error}</div>}
+      <div className="card">
+        <div className="nav">
+          <button className={statusFilter === 'needs_review' ? 'button' : 'button ghost'} onClick={() => setStatusFilter('needs_review')}>
+            Needs review
+          </button>
+          <button className={statusFilter === 'processing' ? 'button' : 'button ghost'} onClick={() => setStatusFilter('processing')}>
+            Processing
+          </button>
+          <button className={statusFilter === 'approved' ? 'button' : 'button ghost'} onClick={() => setStatusFilter('approved')}>
+            Approved
+          </button>
+        </div>
+      </div>
       {receipts.length === 0 && !loading && <div className="card">No receipts yet. Upload to get started.</div>}
       {receipts.map((r) => (
         <div key={r.id} className="card" style={{ display: 'grid', gap: 6 }}>
@@ -74,9 +93,14 @@ export default function InboxList() {
             <div className="small">Flags: {r.policyFlags.join(', ')}</div>
           )}
           {r.status === 'needs_review' && (
-            <Link href={`/receipt/${r.id}`} className="button secondary">
-              Open
-            </Link>
+            <div className="flex" style={{ gap: 8 }}>
+              <button className="button secondary" onClick={() => patchStatus(r.id, 'approved')}>
+                Approve
+              </button>
+              <button className="button ghost" onClick={() => patchStatus(r.id, 'rejected')}>
+                Reject
+              </button>
+            </div>
           )}
         </div>
       ))}

@@ -1,10 +1,36 @@
 import { NextResponse } from 'next/server';
-import { createReceiptFromUpload, ensureUser, ingestOcr, cryptoRandomId } from '@/lib/data';
-import { getSupabaseService } from '@/lib/supabaseClient';
-import { runOcr } from '@/lib/ocr';
+import { cryptoRandomId } from '@/lib/data';
 import { addReceipt, updateReceipt } from '@/lib/receiptStore';
+import { evaluateReceipt } from '@/lib/policyEngine';
 
 export const runtime = 'nodejs';
+
+type ParsedStub = {
+  vendor?: string;
+  date?: string;
+  amount?: number;
+  category?: string;
+  tipPct?: number;
+  confidenceScore: number;
+};
+
+function parseStub(filename: string): ParsedStub {
+  const name = filename.toLowerCase();
+  const today = new Date().toISOString().slice(0, 10);
+  if (name.includes('uber') || name.includes('lyft')) {
+    return { vendor: 'Uber', date: today, amount: 22.5, category: 'rideshare', confidenceScore: 0.95 };
+  }
+  if (name.includes('starbucks') || name.includes('coffee')) {
+    return { vendor: 'Starbucks', date: today, amount: 8.75, category: 'coffee', confidenceScore: 0.95 };
+  }
+  if (name.includes('marriott') || name.includes('hotel')) {
+    return { vendor: 'Marriott', date: today, amount: 220.0, category: 'lodging', confidenceScore: 0.85 };
+  }
+  if (name.includes('wework') || name.includes('office')) {
+    return { vendor: 'WeWork', date: today, amount: 130.0, category: 'office', confidenceScore: 0.85 };
+  }
+  return { vendor: 'Unknown Vendor', date: today, amount: 42.0, category: 'meals', confidenceScore: 0.8 };
+}
 
 export async function POST(req: Request) {
   try {
@@ -15,73 +41,22 @@ export async function POST(req: Request) {
     const receiptId = cryptoRandomId('rcpt');
     addReceipt({ id: receiptId, filename: file.name, status: 'processing', uploadedAt: new Date().toISOString() });
 
-    // Respond immediately to avoid pending UI.
     const response = NextResponse.json({ receiptId, status: 'processing' }, { status: 201 });
 
-    // Background work: best-effort store + OCR + ingest.
-    (async () => {
-      try {
-        const user = await ensureUser();
-        const supabase = getSupabaseService();
-        const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        const ext = file.name.split('.').pop() || 'bin';
-        const path = `uploads/${receiptId}.${ext}`;
-
-        const uploadToSupabase = async () => {
-          const { error } = await supabase.storage
-            .from('receipts')
-            .upload(path, buffer, { upsert: true, contentType: file.type || 'application/octet-stream' });
-          return error;
-        };
-
-        let uploaded = false;
-        try {
-          let err = await uploadToSupabase();
-          if (err && err.message?.toLowerCase().includes('not found')) {
-            await supabase.storage.createBucket('receipts', { public: true, fileSizeLimit: 50 * 1024 * 1024 });
-            err = await uploadToSupabase();
-          }
-          if (err) throw err;
-          uploaded = true;
-        } catch (uploadErr: any) {
-          console.warn('Supabase storage unavailable, falling back to local stub:', uploadErr?.message);
-        }
-
-        let text = '';
-        if (!file.type.includes('pdf')) {
-          try {
-            text = await runOcr(buffer);
-          } catch (ocrErr) {
-            console.warn('OCR failed, continuing without text', ocrErr);
-          }
-        }
-
-        try {
-          await createReceiptFromUpload(uploaded ? path : `local-fallback/${receiptId}.${ext}`, user.id);
-        } catch (e) {
-          console.warn('createReceiptFromUpload failed', e);
-        }
-
-        ingestOcr(receiptId, text, uploaded ? path : `local-fallback/${receiptId}.${ext}`, user.id).catch((e) =>
-          console.warn('ingest failed', e)
-        );
-
-        // Demo: mark as needs_review with fake parsed fields after 2s.
-        setTimeout(() => {
-          updateReceipt(receiptId, {
-            status: 'needs_review',
-            vendor: 'Demo Vendor',
-            date: new Date().toISOString().slice(0, 10),
-            amount: 42.5,
-            category: 'Meals',
-            policyFlags: ['receipt_required']
-          });
-        }, 2000);
-      } catch (bgErr) {
-        console.error('upload background processing failed', bgErr);
-      }
-    })();
+    // Demo background: parse stub and apply policy in 1s.
+    setTimeout(() => {
+      const parsed = parseStub(file.name);
+      const policy = evaluateReceipt(parsed, parsed.confidenceScore);
+      updateReceipt(receiptId, {
+        status: policy.decision === 'approved' ? 'approved' : 'needs_review',
+        vendor: parsed.vendor,
+        date: parsed.date,
+        amount: parsed.amount,
+        category: parsed.category,
+        policyFlags: policy.flags.map((f) => f.code),
+        confidenceScore: policy.confidenceScore
+      });
+    }, 1000);
 
     return response;
   } catch (err: any) {

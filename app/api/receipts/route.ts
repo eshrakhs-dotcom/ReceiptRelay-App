@@ -4,8 +4,10 @@ import { clearReceipts, listReceipts, updateReceipt } from '@/lib/receiptStore';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
-  const receipts = listReceipts();
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const status = searchParams.get('status');
+  const receipts = listReceipts().filter((r) => (status ? r.status === status : true));
   return NextResponse.json({ receipts });
 }
 
