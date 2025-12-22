@@ -10,24 +10,22 @@ export default function UploadPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!file) return;
-    setLoading(true);
-    setMessage('');
-    const form = new FormData();
-    form.append('file', file);
     try {
+      setLoading(true);
+      setMessage('');
+      const form = new FormData();
+      form.append('file', file);
+
       const res = await fetch('/api/upload', { method: 'POST', body: form });
-      let data: any = {};
-      try {
-        data = await res.json();
-      } catch {
-        /* non-JSON response */
+      if (!res.ok) {
+        const bodyText = await res.text().catch(() => '');
+        throw new Error(`Upload failed (${res.status}): ${bodyText || res.statusText}`);
       }
-      if (res.ok && data.receipt_id) {
-        setMessage('Uploaded. Processing… (check Inbox)');
-      } else {
-        const bodyText = !res.ok ? (await res.text().catch(() => '')) : '';
-        setMessage(data.error || bodyText || 'Upload failed');
-      }
+
+      const data = await res.json();
+      console.log('upload status', res.status, 'ok', res.ok, 'data', data);
+
+      setMessage('Uploaded. Processing… (check Inbox)');
     } catch (err: any) {
       setMessage(err?.message || 'Upload failed. Check connection and try again.');
     } finally {
