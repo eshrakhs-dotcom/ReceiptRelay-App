@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cryptoRandomId } from '@/lib/data';
-import { addReceipt, updateReceipt } from '@/lib/receiptStore';
+import { addReceipt, updateReceipt, listReceipts } from '@/lib/receiptStore';
 import { evaluateReceipt } from '@/lib/policyEngine';
 
 export const runtime = 'nodejs';
@@ -32,20 +32,44 @@ function parseStub(filename: string): ParsedStub {
   return { vendor: 'Unknown Vendor', date: today, amount: 42.0, category: 'meals', confidenceScore: 0.8 };
 }
 
+function isDuplicate(parsed: ParsedStub) {
+  if (!parsed.vendor || !parsed.date || parsed.amount == null) return false;
+  return listReceipts().some(
+    (r) =>
+      r.vendor?.toLowerCase() === parsed.vendor?.toLowerCase() &&
+      r.date === parsed.date &&
+      r.amount === parsed.amount
+  );
+}
+
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     if (!file) return NextResponse.json({ error: 'file missing' }, { status: 400 });
 
+    const parsed = parseStub(file.name);
+    if (isDuplicate(parsed)) {
+      return NextResponse.json({ error: 'duplicate receipt detected', status: 'duplicate' }, { status: 409 });
+    }
+
     const receiptId = cryptoRandomId('rcpt');
-    addReceipt({ id: receiptId, filename: file.name, status: 'processing', uploadedAt: new Date().toISOString() });
+    addReceipt({
+      id: receiptId,
+      filename: file.name,
+      status: 'processing',
+      uploadedAt: new Date().toISOString(),
+      vendor: parsed.vendor,
+      date: parsed.date,
+      amount: parsed.amount,
+      category: parsed.category,
+      confidenceScore: parsed.confidenceScore
+    });
 
     const response = NextResponse.json({ receiptId, status: 'processing' }, { status: 201 });
 
     // Demo background: parse stub and apply policy in 1s.
     setTimeout(() => {
-      const parsed = parseStub(file.name);
       const policy = evaluateReceipt(parsed, parsed.confidenceScore);
       updateReceipt(receiptId, {
         status: policy.decision === 'approved' ? 'approved' : 'needs_review',
