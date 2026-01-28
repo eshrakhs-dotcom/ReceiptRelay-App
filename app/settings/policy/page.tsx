@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import { ensureUser, getPolicies, upsertPolicies } from '@/lib/data';
 
 export default async function PolicyPage() {
