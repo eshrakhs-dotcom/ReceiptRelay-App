@@ -4,8 +4,21 @@ export const revalidate = 0;
 import { ensureUser, getPolicies, upsertPolicies } from '@/lib/data';
 
 export default async function PolicyPage() {
-  const user = await ensureUser();
-  const policies = await getPolicies(user.id);
+  let user: any = null;
+  let policies: any = null;
+  try {
+    user = await ensureUser();
+    policies = await getPolicies(user.id);
+  } catch (err) {
+    return (
+      <div className="card">
+        <div className="title">Policies</div>
+        <p className="small">
+          Policies are unavailable. Ensure Supabase env vars (URL, anon, service role) are set in this deployment, then redeploy.
+        </p>
+      </div>
+    );
+  }
   const restricted =
     typeof policies?.restricted_categories === 'string'
       ? (() => {
@@ -20,6 +33,7 @@ export default async function PolicyPage() {
 
   async function savePolicy(formData: FormData) {
     'use server';
+    if (!user) return;
     await upsertPolicies(user.id, {
       per_diem: Number(formData.get('per_diem')),
       receipt_required_over: Number(formData.get('receipt_required_over')),
