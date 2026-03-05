@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { cryptoRandomId } from '@/lib/data';
-import { addReceipt, updateReceipt, listReceipts } from '@/lib/receiptStore';
+import { cryptoRandomId, createReceiptWithId, ensureUser, findDuplicate, updateReceipt } from '@/lib/data';
 import { evaluateReceipt } from '@/lib/policyEngine';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 type ParsedStub = {
   vendor?: string;
@@ -17,29 +17,11 @@ type ParsedStub = {
 function parseStub(filename: string): ParsedStub {
   const name = filename.toLowerCase();
   const today = new Date().toISOString().slice(0, 10);
-  if (name.includes('uber') || name.includes('lyft')) {
-    return { vendor: 'Uber', date: today, amount: 22.5, category: 'rideshare', confidenceScore: 0.95 };
-  }
-  if (name.includes('starbucks') || name.includes('coffee')) {
-    return { vendor: 'Starbucks', date: today, amount: 8.75, category: 'coffee', confidenceScore: 0.95 };
-  }
-  if (name.includes('marriott') || name.includes('hotel')) {
-    return { vendor: 'Marriott', date: today, amount: 220.0, category: 'lodging', confidenceScore: 0.85 };
-  }
-  if (name.includes('wework') || name.includes('office')) {
-    return { vendor: 'WeWork', date: today, amount: 130.0, category: 'office', confidenceScore: 0.85 };
-  }
+  if (name.includes('uber') || name.includes('lyft')) return { vendor: 'Uber', date: today, amount: 22.5, category: 'rideshare', confidenceScore: 0.95 };
+  if (name.includes('starbucks') || name.includes('coffee')) return { vendor: 'Starbucks', date: today, amount: 8.75, category: 'coffee', confidenceScore: 0.95 };
+  if (name.includes('marriott') || name.includes('hotel')) return { vendor: 'Marriott', date: today, amount: 220.0, category: 'lodging', confidenceScore: 0.85 };
+  if (name.includes('wework') || name.includes('office')) return { vendor: 'WeWork', date: today, amount: 130.0, category: 'office', confidenceScore: 0.85 };
   return { vendor: 'Unknown Vendor', date: today, amount: 42.0, category: 'meals', confidenceScore: 0.8 };
-}
-
-function isDuplicate(parsed: ParsedStub) {
-  if (!parsed.vendor || !parsed.date || parsed.amount == null) return false;
-  return listReceipts().some(
-    (r) =>
-      r.vendor?.toLowerCase() === parsed.vendor?.toLowerCase() &&
-      r.date === parsed.date &&
-      r.amount === parsed.amount
-  );
 }
 
 export async function POST(req: Request) {
@@ -48,39 +30,34 @@ export async function POST(req: Request) {
     const file = formData.get('file') as File | null;
     if (!file) return NextResponse.json({ error: 'file missing' }, { status: 400 });
 
+    const user = await ensureUser();
     const parsed = parseStub(file.name);
-    if (isDuplicate(parsed)) {
+    const duplicate = await findDuplicate(parsed.vendor || null, parsed.date || null, parsed.amount ?? null);
+    if (duplicate) {
       return NextResponse.json({ error: 'duplicate receipt detected', status: 'duplicate' }, { status: 409 });
     }
 
     const receiptId = cryptoRandomId('rcpt');
-    addReceipt({
-      id: receiptId,
-      filename: file.name,
-      status: 'processing',
-      uploadedAt: new Date().toISOString(),
-      vendor: parsed.vendor,
-      date: parsed.date,
-      amount: parsed.amount,
-      category: parsed.category,
-      confidenceScore: parsed.confidenceScore
-    });
-
+    await createReceiptWithId(receiptId, user.id, `uploads/${receiptId}-${file.name}`, 'processing');
     const response = NextResponse.json({ receiptId, status: 'processing' }, { status: 201 });
 
-    // Demo background: parse stub and apply policy in 1s.
-    setTimeout(() => {
-      const policy = evaluateReceipt(parsed, parsed.confidenceScore);
-      updateReceipt(receiptId, {
-        status: policy.decision === 'approved' ? 'approved' : 'needs_review',
-        vendor: parsed.vendor,
-        date: parsed.date,
-        amount: parsed.amount,
-        category: parsed.category,
-        policyFlags: policy.flags.map((f) => f.code),
-        confidenceScore: policy.confidenceScore
-      });
-    }, 1000);
+    setTimeout(async () => {
+      try {
+        const policy = evaluateReceipt(parsed, parsed.confidenceScore, false);
+        await updateReceipt(receiptId, {
+          status: policy.decision === 'approved' ? 'approved' : 'needs_review',
+          vendor: parsed.vendor || null,
+          date: parsed.date || null,
+          amount: parsed.amount ?? null,
+          category: parsed.category || null,
+          policy_flags: policy.flags.map((f) => f.code),
+          confidence_score: policy.confidenceScore,
+          memo: file.name
+        });
+      } catch (e) {
+        console.error('background parse/policy failed', e);
+      }
+    }, 1200);
 
     return response;
   } catch (err: any) {

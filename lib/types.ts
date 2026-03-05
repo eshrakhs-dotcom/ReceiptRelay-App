@@ -1,4 +1,4 @@
-export type ReceiptStatus = 'inbox' | 'approved' | 'rejected';
+export type ReceiptStatus = 'processing' | 'needs_review' | 'approved' | 'rejected' | 'inbox';
 
 export interface ReceiptRow {
   id: string;
@@ -17,6 +17,7 @@ export interface ReceiptRow {
   memo?: string | null;
   policy_flags?: string[] | null;
   duplicate_of?: string | null;
+  confidence_score?: number | null;
 }
 
 export interface PolicyRow {

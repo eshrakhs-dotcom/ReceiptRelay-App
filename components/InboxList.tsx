@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
 type Receipt = {
@@ -23,7 +23,7 @@ export default function InboxList() {
   const lastHash = useRef<string>('');
   const firstLoad = useRef(true);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (firstLoad.current) setLoading(true);
     setError('');
     try {
@@ -45,13 +45,13 @@ export default function InboxList() {
         firstLoad.current = false;
       }
     }
-  };
+  }, [statusFilter]);
 
   useEffect(() => {
     load();
     const t = setInterval(load, 2000);
     return () => clearInterval(t);
-  }, [statusFilter]);
+  }, [load]);
 
   const resetDemo = async () => {
     await fetch('/api/receipts', { method: 'DELETE' });

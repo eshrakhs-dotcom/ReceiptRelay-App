@@ -44,6 +44,14 @@ export async function getReceipts(status: 'inbox' | 'approved' = 'inbox') {
   return (data || []) as ReceiptRow[];
 }
 
+export async function listReceipts(status?: string) {
+  let query = supabase().from('receipts').select('*').order('created_at', { ascending: false });
+  if (status) query = query.eq('status', status);
+  const { data, error } = await query;
+  if (error) throw new Error(`list receipts failed: ${error.message}`);
+  return (data || []) as ReceiptRow[];
+}
+
 export async function getReceipt(id: string) {
   const { data } = await supabase().from('receipts').select('*').eq('id', id).single();
   return data as ReceiptRow | null;
@@ -134,6 +142,12 @@ export async function createReceiptFromUpload(filePath: string, userId: string) 
   return id;
 }
 
+export async function createReceiptWithId(id: string, userId: string, filePath: string, status: string = 'processing') {
+  const { error } = await supabase().from('receipts').insert({ id, user_id: userId, file_path: filePath, status });
+  if (error) throw new Error(`receipt insert failed: ${error.message}`);
+  await insertLog(id, 'upload', 'file stored');
+}
+
 export async function updateReceipt(id: string, payload: Partial<ReceiptRow>) {
   const { data } = await supabase()
     .from('receipts')
@@ -143,6 +157,18 @@ export async function updateReceipt(id: string, payload: Partial<ReceiptRow>) {
     .single();
   await insertLog(id, 'approve', `updated status to ${payload.status ?? 'inbox'}`);
   return data as ReceiptRow;
+}
+
+export async function findDuplicate(vendor?: string | null, date?: string | null, amount?: number | null) {
+  if (!vendor || !date || amount == null) return null;
+  const { data, error } = await supabase().from('receipts').select('*').eq('vendor', vendor).eq('date', date).eq('amount', amount).limit(1);
+  if (error) throw new Error(`duplicate lookup failed: ${error.message}`);
+  return data?.[0] || null;
+}
+
+export async function clearReceipts() {
+  const { error } = await supabase().from('receipts').delete().neq('id', '');
+  if (error) throw new Error(`clear receipts failed: ${error.message}`);
 }
 
 export function cryptoRandomId(prefix: string) {

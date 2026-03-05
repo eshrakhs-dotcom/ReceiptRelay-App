@@ -1,5 +1,3 @@
-import { listReceipts } from './receiptStore';
-
 export type PolicyDecision = 'approved' | 'needs_review' | 'rejected';
 
 export interface PolicyResult {
@@ -27,7 +25,7 @@ export const defaultRules = {
   duplicateWindowDays: 7
 };
 
-export function evaluateReceipt(parsed: ParsedReceipt, confidenceScore: number): PolicyResult {
+export function evaluateReceipt(parsed: ParsedReceipt, confidenceScore: number, duplicateDetected = false): PolicyResult {
   const flags: PolicyResult['flags'] = [];
   const amt = parsed.amount ?? 0;
 
@@ -45,8 +43,7 @@ export function evaluateReceipt(parsed: ParsedReceipt, confidenceScore: number):
   }
 
   // Duplicate detection: vendor+date+amount within window.
-  const dup = detectDuplicate(parsed.vendor, parsed.date, parsed.amount);
-  if (dup) {
+  if (duplicateDetected) {
     flags.push({ code: 'POSSIBLE_DUPLICATE', severity: 'warn', message: 'Possible duplicate receipt' });
   }
 
@@ -58,15 +55,4 @@ export function evaluateReceipt(parsed: ParsedReceipt, confidenceScore: number):
   }
 
   return { decision, flags, confidenceScore };
-}
-
-function detectDuplicate(vendor?: string, date?: string, amount?: number) {
-  if (!vendor || !date || amount == null) return false;
-  const now = new Date(date).getTime();
-  return listReceipts().some((r) => {
-    if (!r.vendor || !r.date || r.amount == null) return false;
-    const diff = Math.abs(new Date(r.date).getTime() - now);
-    const days = diff / (1000 * 60 * 60 * 24);
-    return days <= defaultRules.duplicateWindowDays && r.vendor.toLowerCase() === vendor.toLowerCase() && r.amount === amount;
-  });
 }

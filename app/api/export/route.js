@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { listReceipts } from '@/lib/receiptStore';
+import { listReceipts } from '@/lib/data';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,14 +30,19 @@ export async function GET(req) {
   const url = new URL(req.url);
   const format = (url.searchParams.get('format') || 'csv').toLowerCase();
   const month = url.searchParams.get('month');
-  const approved = listReceipts().filter((r) => {
+  const rows = await listReceipts('approved');
+  const approved = rows.filter((r) => {
     if (r.status !== 'approved') return false;
     if (month && /^\d{4}-\d{2}$/.test(month)) {
-      const m = (r.date || r.uploadedAt || '').slice(0, 7);
+      const m = ((r.date || r.created_at || '') + '').slice(0, 7);
       return m === month;
     }
     return true;
-  });
+  }).map((r) => ({
+    ...r,
+    uploadedAt: r.created_at,
+    policyFlags: r.policy_flags || []
+  }));
   if (!approved.length) {
     return NextResponse.json({ error: 'no approved receipts' }, { status: 400 });
   }

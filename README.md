@@ -30,3 +30,8 @@ Next.js + Supabase implementation of the PRD. Focused on: upload → OCR → par
 - CSV export matches PRD column order. PDF summarises totals, categories, vendors, and flags.
 - Feature flag: set `LLM_ENABLED=true` to enable `/api/ai` responses.
 
+## Research Run (200 Synthetic Receipts)
+1. Apply DB migration in Supabase SQL editor: `supabase/migrations_research.sql`.
+2. Ensure `.env.local` has `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
+3. Run synthetic benchmark: `npm run research:run -- 2026-03 200`
+4. The script inserts receipts into `receipts`, saves run metadata in `research_runs` + `research_metrics`, and writes a JSON report to `research/output/`.
