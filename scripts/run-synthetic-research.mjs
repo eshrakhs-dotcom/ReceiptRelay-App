@@ -250,7 +250,14 @@ function computeMetrics(dataset, predictions, condition) {
   }
   summary.auto_approval_rate = round(summary.approved / Math.max(summary.total, 1));
   summary.review_rate = round(summary.needs_review / Math.max(summary.total, 1));
-  summary.workload_condition_seconds = summary.needs_review * 40;
+  // Workload model:
+  // - Manual baseline: 60s/receipt (all receipts manually reviewed).
+  // - Automated conditions: 40s only for receipts routed to needs_review.
+  if (condition === 'manual_only') {
+    summary.workload_condition_seconds = summary.total * 60;
+  } else {
+    summary.workload_condition_seconds = summary.needs_review * 40;
+  }
   summary.workload_reduction_pct = round((summary.workload_manual_seconds - summary.workload_condition_seconds) / summary.workload_manual_seconds);
 
   let tp = 0;
