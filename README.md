@@ -34,4 +34,4 @@ Next.js + Supabase implementation of the PRD. Focused on: upload → OCR → par
 1. Apply DB migration in Supabase SQL editor: `supabase/migrations_research.sql`.
 2. Ensure `.env.local` has `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
 3. Run synthetic benchmark: `npm run research:run -- 2026-03 200`
-4. The script inserts receipts into `receipts`, saves run metadata in `research_runs` + `research_metrics`, and writes a JSON report to `research/output/`.
+4. The script evaluates the same dataset across 4 conditions (`manual_only`, `ocr_parse_only`, `ocr_parse_policy_no_norm`, `full_pipeline`), inserts full-pipeline rows into `receipts`, stores per-condition metrics in `research_runs` + `research_metrics`, and writes a JSON report to `research/output/`.
