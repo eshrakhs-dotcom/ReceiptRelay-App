@@ -113,6 +113,34 @@ function normalizeAmount(raw) {
   return Number.isFinite(n) ? Number(n.toFixed(2)) : null;
 }
 
+function parseVendorNoNorm(raw) {
+  if (!raw) return null;
+  return String(raw);
+}
+
+function parseDateNoNorm(raw) {
+  if (!raw) return null;
+  // No normalization: only ISO dates parse successfully.
+  return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
+}
+
+function parseAmountNoNorm(raw) {
+  if (raw == null) return null;
+  // No normalization: reject currency symbols/text.
+  if (/[^\d.\-]/.test(String(raw))) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? Number(n.toFixed(2)) : null;
+}
+
+function sameDay(a, b) {
+  return Boolean(a && b && String(a).slice(0, 10) === String(b).slice(0, 10));
+}
+
+function amountClose(a, b, tol = 0.01) {
+  if (a == null || b == null) return false;
+  return Math.abs(Number(a) - Number(b)) <= tol;
+}
+
 function buildSyntheticData(count, month) {
   const { y, m } = monthRange(month);
   const base = new Date(Date.UTC(y, m - 1, 1, 12, 0, 0));
@@ -178,7 +206,23 @@ function evaluateCondition(condition, dataset) {
 
   if (condition === 'manual_only' || condition === 'ocr_parse_only') {
     for (const row of dataset) {
-      predictions.push({ id: row.id, status: 'needs_review', flags: [] });
+      if (condition === 'manual_only') {
+        predictions.push({ id: row.id, status: 'needs_review', flags: [] });
+      } else {
+        predictions.push({
+          id: row.id,
+          status: 'needs_review',
+          flags: [],
+          parsed: {
+            vendor: parseVendorNoNorm(row.observed.vendor_raw),
+            date: parseDateNoNorm(row.observed.date_raw),
+            amount: parseAmountNoNorm(row.observed.amount_raw),
+            tax: null,
+            currency: null,
+            category: null
+          }
+        });
+      }
     }
     return predictions;
   }
@@ -189,12 +233,18 @@ function evaluateCondition(condition, dataset) {
     let parsedVendor = row.truth.vendor;
     let parsedDate = row.truth.date;
     let parsedAmount = row.truth.amount;
+    let parsedTax = row.truth.tax;
+    let parsedCurrency = row.truth.currency;
+    let parsedCategory = row.truth.category;
     let confidenceScore = row.truth.confidenceScore;
 
     if (condition === 'ocr_parse_policy_no_norm') {
-      parsedVendor = row.observed.vendor_raw;
-      parsedDate = row.observed.date_raw;
-      parsedAmount = normalizeAmount(row.observed.amount_raw);
+      parsedVendor = parseVendorNoNorm(row.observed.vendor_raw);
+      parsedDate = parseDateNoNorm(row.observed.date_raw);
+      parsedAmount = parseAmountNoNorm(row.observed.amount_raw);
+      parsedTax = null;
+      parsedCurrency = null;
+      parsedCategory = null;
       confidenceScore = Math.max(0.6, row.truth.confidenceScore - 0.12);
     }
 
@@ -225,7 +275,20 @@ function evaluateCondition(condition, dataset) {
       status = 'approved';
     }
 
-    predictions.push({ id: row.id, status, flags, confidenceScore });
+    predictions.push({
+      id: row.id,
+      status,
+      flags,
+      confidenceScore,
+      parsed: {
+        vendor: parsedVendor,
+        date: parsedDate,
+        amount: parsedAmount,
+        tax: parsedTax,
+        currency: parsedCurrency,
+        category: parsedCategory
+      }
+    });
   }
 
   return predictions;
@@ -272,6 +335,62 @@ function computeMetrics(dataset, predictions, condition) {
   }
   const duplicateMetrics = prf(tp, fp, fn);
 
+  const extractionMetrics = {
+    vendor_exact: null,
+    vendor_tolerant: null,
+    date_exact: null,
+    date_tolerant: null,
+    amount_exact: null,
+    amount_tolerant: null,
+    tax_exact: null,
+    tax_tolerant: null,
+    currency_exact: null,
+    category_exact: null
+  };
+  if (condition !== 'manual_only') {
+    let ve = 0;
+    let vt = 0;
+    let de = 0;
+    let dt = 0;
+    let ae = 0;
+    let at = 0;
+    let te = 0;
+    let tt = 0;
+    let ce = 0;
+    let cate = 0;
+    for (const row of dataset) {
+      const p = predMap.get(row.id)?.parsed || {};
+      const tv = row.truth.vendor;
+      const td = row.truth.date;
+      const ta = row.truth.amount;
+      const ttax = row.truth.tax;
+      const tcur = row.truth.currency;
+      const tcat = row.truth.category;
+
+      if (p.vendor === tv) ve += 1;
+      if (normalizeVendor(p.vendor) === normalizeVendor(tv)) vt += 1;
+      if (p.date === td) de += 1;
+      if (sameDay(p.date, td)) dt += 1;
+      if (p.amount === ta) ae += 1;
+      if (amountClose(p.amount, ta, 0.01)) at += 1;
+      if (p.tax === ttax) te += 1;
+      if (amountClose(p.tax, ttax, 0.01)) tt += 1;
+      if (p.currency === tcur) ce += 1;
+      if (p.category === tcat) cate += 1;
+    }
+    const n = dataset.length;
+    extractionMetrics.vendor_exact = round(ve / n);
+    extractionMetrics.vendor_tolerant = round(vt / n);
+    extractionMetrics.date_exact = round(de / n);
+    extractionMetrics.date_tolerant = round(dt / n);
+    extractionMetrics.amount_exact = round(ae / n);
+    extractionMetrics.amount_tolerant = round(at / n);
+    extractionMetrics.tax_exact = round(te / n);
+    extractionMetrics.tax_tolerant = round(tt / n);
+    extractionMetrics.currency_exact = round(ce / n);
+    extractionMetrics.category_exact = round(cate / n);
+  }
+
   const policyMetrics = {};
   for (const flag of FLAG_TYPES) {
     let ftp = 0;
@@ -287,7 +406,7 @@ function computeMetrics(dataset, predictions, condition) {
     policyMetrics[flag] = { ...prf(ftp, ffp, ffn), support: dataset.filter((r) => r.truth.flags.includes(flag)).length };
   }
 
-  return { condition, summary, duplicateMetrics, policyMetrics };
+  return { condition, summary, duplicateMetrics, extractionMetrics, policyMetrics };
 }
 
 function buildRowsForInsert(dataset, fullPredictions, month) {
@@ -326,6 +445,11 @@ function flattenMetrics(runId, allConditionMetrics) {
     for (const [k, v] of Object.entries(item.duplicateMetrics)) {
       out.push({ run_id: runId, condition: c, metric_key: `duplicate.${k}`, metric_value: v });
     }
+    for (const [k, v] of Object.entries(item.extractionMetrics)) {
+      if (typeof v === 'number') {
+        out.push({ run_id: runId, condition: c, metric_key: `extraction.${k}`, metric_value: v });
+      }
+    }
     for (const [flag, vals] of Object.entries(item.policyMetrics)) {
       for (const [k, v] of Object.entries(vals)) {
         out.push({ run_id: runId, condition: c, metric_key: `policy.${flag}.${k}`, metric_value: Number(v) });
@@ -348,6 +472,10 @@ function printComparativeSummary(allMetrics) {
     }, {}),
     duplicate_detection: CONDITIONS.reduce((acc, c) => {
       acc[c] = index[c].duplicateMetrics;
+      return acc;
+    }, {}),
+    extraction_accuracy: CONDITIONS.reduce((acc, c) => {
+      acc[c] = index[c].extractionMetrics;
       return acc;
     }, {}),
     workload: CONDITIONS.reduce((acc, c) => {
