@@ -78,6 +78,18 @@ function rawAmountVariant(amount, i) {
   return `${amount}`;
 }
 
+function rawTaxVariant(tax, i) {
+  if (i % 3 === 0) return `$${tax.toFixed(2)}`;
+  if (i % 3 === 1) return `Tax ${tax.toFixed(2)}`;
+  return `${tax.toFixed(2)}`;
+}
+
+function rawCurrencyVariant(currency, i) {
+  if (i % 3 === 0) return '$';
+  if (i % 3 === 1) return currency;
+  return 'US DOLLARS';
+}
+
 function rawVendorVariant(vendor, i) {
   if (i % 3 === 0) return vendor.toUpperCase();
   if (i % 3 === 1) return ` ${vendor} `;
@@ -130,6 +142,42 @@ function parseAmountNoNorm(raw) {
   if (/[^\d.\-]/.test(String(raw))) return null;
   const n = Number(raw);
   return Number.isFinite(n) ? Number(n.toFixed(2)) : null;
+}
+
+function parseTaxNoNorm(raw) {
+  if (raw == null) return null;
+  if (/[^\d.\-]/.test(String(raw))) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? Number(n.toFixed(2)) : null;
+}
+
+function parseCurrencyNoNorm(raw) {
+  if (!raw) return null;
+  return raw === 'USD' ? 'USD' : null;
+}
+
+function parseVendorNorm(raw) {
+  if (!raw) return null;
+  return String(raw).trim().replace(/\s+/g, ' ');
+}
+
+function parseDateNorm(raw) {
+  return normalizeDate(raw);
+}
+
+function parseAmountNorm(raw) {
+  return normalizeAmount(raw);
+}
+
+function parseTaxNorm(raw) {
+  return normalizeAmount(raw);
+}
+
+function parseCurrencyNorm(raw) {
+  if (!raw) return null;
+  const t = String(raw).trim().toUpperCase();
+  if (t === 'USD' || t === '$' || t === 'US DOLLARS') return 'USD';
+  return null;
 }
 
 function sameDay(a, b) {
@@ -189,7 +237,9 @@ function buildSyntheticData(count, month) {
       observed: {
         vendor_raw: rawVendorVariant(vendor ?? 'Unknown Vendor', i),
         date_raw: rawDateVariant(date, i),
-        amount_raw: rawAmountVariant(amt, i)
+        amount_raw: rawAmountVariant(amt, i),
+        tax_raw: rawTaxVariant(tax, i),
+        currency_raw: rawCurrencyVariant('USD', i)
       }
     });
   }
@@ -230,13 +280,13 @@ function evaluateCondition(condition, dataset) {
   const duplicateSeen = new Map();
 
   for (const row of dataset) {
-    let parsedVendor = row.truth.vendor;
-    let parsedDate = row.truth.date;
-    let parsedAmount = row.truth.amount;
-    let parsedTax = row.truth.tax;
-    let parsedCurrency = row.truth.currency;
-    let parsedCategory = row.truth.category;
-    let confidenceScore = row.truth.confidenceScore;
+    let parsedVendor;
+    let parsedDate;
+    let parsedAmount;
+    let parsedTax;
+    let parsedCurrency;
+    let parsedCategory;
+    let confidenceScore;
 
     if (condition === 'ocr_parse_policy_no_norm') {
       parsedVendor = parseVendorNoNorm(row.observed.vendor_raw);
@@ -246,6 +296,15 @@ function evaluateCondition(condition, dataset) {
       parsedCurrency = null;
       parsedCategory = null;
       confidenceScore = Math.max(0.6, row.truth.confidenceScore - 0.12);
+    } else {
+      // Full pipeline parses from noisy observed text and then normalizes.
+      parsedVendor = parseVendorNorm(row.observed.vendor_raw);
+      parsedDate = parseDateNorm(row.observed.date_raw);
+      parsedAmount = parseAmountNorm(row.observed.amount_raw);
+      parsedTax = parseTaxNorm(row.observed.tax_raw);
+      parsedCurrency = parseCurrencyNorm(row.observed.currency_raw);
+      parsedCategory = row.truth.category;
+      confidenceScore = row.truth.confidenceScore;
     }
 
     const flags = [];
