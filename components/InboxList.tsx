@@ -54,8 +54,13 @@ export default function InboxList() {
   }, [load]);
 
   const resetDemo = async () => {
-    await fetch('/api/receipts', { method: 'DELETE' });
-    load();
+    try {
+      const res = await fetch('/api/receipts', { method: 'DELETE' });
+      if (!res.ok) throw new Error(`reset failed (${res.status})`);
+      await load();
+    } catch (e: any) {
+      setError(e?.message || 'Reset demo failed');
+    }
   };
 
   const patchStatus = async (id: string, status: string) => {

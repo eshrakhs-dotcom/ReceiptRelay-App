@@ -32,6 +32,10 @@ export async function PATCH(req: Request) {
 }
 
 export async function DELETE() {
-  await clearReceipts();
-  return NextResponse.json({ ok: true });
+  try {
+    await clearReceipts();
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message || 'reset failed' }, { status: 500 });
+  }
 }

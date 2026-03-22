@@ -24,6 +24,14 @@ function parseStub(filename: string): ParsedStub {
   return { vendor: 'Unknown Vendor', date: today, amount: 42.0, category: 'meals', confidenceScore: 0.8 };
 }
 
+function canCheckDuplicate(parsed: ParsedStub) {
+  const vendor = (parsed.vendor || '').trim().toLowerCase();
+  if (!vendor || vendor === 'unknown vendor') return false;
+  if (!parsed.date) return false;
+  if (parsed.amount == null) return false;
+  return true;
+}
+
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
@@ -32,7 +40,9 @@ export async function POST(req: Request) {
 
     const user = await ensureUser();
     const parsed = parseStub(file.name);
-    const duplicate = await findDuplicate(parsed.vendor || null, parsed.date || null, parsed.amount ?? null);
+    const duplicate = canCheckDuplicate(parsed)
+      ? await findDuplicate(parsed.vendor || null, parsed.date || null, parsed.amount ?? null)
+      : null;
     if (duplicate) {
       return NextResponse.json({ error: 'duplicate receipt detected', status: 'duplicate' }, { status: 409 });
     }

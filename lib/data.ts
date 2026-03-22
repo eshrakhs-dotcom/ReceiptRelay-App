@@ -167,6 +167,10 @@ export async function findDuplicate(vendor?: string | null, date?: string | null
 }
 
 export async function clearReceipts() {
+  // Clear child rows first because logs.receipt_id has FK to receipts.id.
+  const { error: logErr } = await supabase().from('logs').delete().neq('id', 0);
+  if (logErr) throw new Error(`clear logs failed: ${logErr.message}`);
+
   const { error } = await supabase().from('receipts').delete().neq('id', '');
   if (error) throw new Error(`clear receipts failed: ${error.message}`);
 }
