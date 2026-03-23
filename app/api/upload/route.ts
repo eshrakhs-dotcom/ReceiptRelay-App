@@ -43,10 +43,9 @@ export async function POST(req: Request) {
 
     const user = await ensureUser();
     const parsed = parseStub(file.name);
-    const duplicateCheckEnabled = process.env.DEMO_DUPLICATE_CHECK === 'true';
-    const duplicate = duplicateCheckEnabled && canCheckDuplicate(parsed)
-      ? await findDuplicate(parsed.vendor || null, parsed.date || null, parsed.amount ?? null)
-      : null;
+    // Demo mode: disable duplicate matching at upload time to avoid false positives
+    // from filename-based parsing and stale demo data.
+    const duplicate = null;
 
     const receiptId = cryptoRandomId('rcpt');
     await createReceiptWithId(receiptId, user.id, `uploads/${receiptId}-${file.name}`, 'processing');
