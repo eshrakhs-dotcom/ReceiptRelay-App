@@ -21,7 +21,10 @@ function parseStub(filename: string): ParsedStub {
   if (name.includes('starbucks') || name.includes('coffee')) return { vendor: 'Starbucks', date: today, amount: 8.75, category: 'coffee', confidenceScore: 0.95 };
   if (name.includes('marriott') || name.includes('hotel')) return { vendor: 'Marriott', date: today, amount: 220.0, category: 'lodging', confidenceScore: 0.85 };
   if (name.includes('wework') || name.includes('office')) return { vendor: 'WeWork', date: today, amount: 130.0, category: 'office', confidenceScore: 0.85 };
-  return { vendor: 'Unknown Vendor', date: today, amount: 42.0, category: 'meals', confidenceScore: 0.8 };
+  const base = filename.replace(/\.[^/.]+$/, '');
+  const firstWord = base.split(/[\s._-]+/).find(Boolean) || 'Misc Receipt';
+  const vendorGuess = firstWord.charAt(0).toUpperCase() + firstWord.slice(1);
+  return { vendor: vendorGuess, date: today, amount: 42.0, category: 'meals', confidenceScore: 0.8 };
 }
 
 function canCheckDuplicate(parsed: ParsedStub) {
@@ -40,7 +43,8 @@ export async function POST(req: Request) {
 
     const user = await ensureUser();
     const parsed = parseStub(file.name);
-    const duplicate = canCheckDuplicate(parsed)
+    const duplicateCheckEnabled = process.env.DEMO_DUPLICATE_CHECK === 'true';
+    const duplicate = duplicateCheckEnabled && canCheckDuplicate(parsed)
       ? await findDuplicate(parsed.vendor || null, parsed.date || null, parsed.amount ?? null)
       : null;
 
