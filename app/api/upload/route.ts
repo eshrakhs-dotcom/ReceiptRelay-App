@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { cryptoRandomId, createReceiptWithId, ensureUser, findDuplicate, updateReceipt } from '@/lib/data';
+import { cryptoRandomId, createReceiptWithId, ensureUser, updateReceipt } from '@/lib/data';
 import { evaluateReceipt } from '@/lib/policyEngine';
 
 export const runtime = 'nodejs';
@@ -27,14 +27,6 @@ function parseStub(filename: string): ParsedStub {
   return { vendor: vendorGuess, date: today, amount: 42.0, category: 'meals', confidenceScore: 0.8 };
 }
 
-function canCheckDuplicate(parsed: ParsedStub) {
-  const vendor = (parsed.vendor || '').trim().toLowerCase();
-  if (!vendor || vendor === 'unknown vendor') return false;
-  if (!parsed.date) return false;
-  if (parsed.amount == null) return false;
-  return true;
-}
-
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
@@ -43,17 +35,14 @@ export async function POST(req: Request) {
 
     const user = await ensureUser();
     const parsed = parseStub(file.name);
-    // Demo mode: disable duplicate matching at upload time to avoid false positives
-    // from filename-based parsing and stale demo data.
-    const duplicate = null;
-
     const receiptId = cryptoRandomId('rcpt');
     await createReceiptWithId(receiptId, user.id, `uploads/${receiptId}-${file.name}`, 'processing');
     const response = NextResponse.json({ receiptId, status: 'processing' }, { status: 201 });
 
     setTimeout(async () => {
       try {
-        const policy = evaluateReceipt(parsed, parsed.confidenceScore, Boolean(duplicate));
+        // Duplicate gating disabled in demo upload flow for stability.
+        const policy = evaluateReceipt(parsed, parsed.confidenceScore, false);
         await updateReceipt(receiptId, {
           status: policy.decision === 'approved' ? 'approved' : 'needs_review',
           vendor: parsed.vendor || null,

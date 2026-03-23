@@ -25,7 +25,7 @@ export default function UploadPage() {
       const data = await res.json();
       console.log('upload status', res.status, 'ok', res.ok, 'data', data);
 
-      setMessage('Uploaded. Processing… (check Inbox)');
+      setMessage(`Uploaded (${data?.receiptId || 'no-id'}). Processing… (check Inbox)`);
     } catch (err: any) {
       setMessage(err?.message || 'Upload failed. Check connection and try again.');
     } finally {

@@ -19,6 +19,7 @@ export default function InboxList() {
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [statusFilter, setStatusFilter] = useState<'needs_review' | 'approved' | 'processing'>('needs_review');
   const lastHash = useRef<string>('');
   const firstLoad = useRef(true);
@@ -55,8 +56,11 @@ export default function InboxList() {
 
   const resetDemo = async () => {
     try {
-      const res = await fetch('/api/receipts', { method: 'DELETE' });
-      if (!res.ok) throw new Error(`reset failed (${res.status})`);
+      setNotice('');
+      const res = await fetch('/api/reset-demo', { method: 'POST' });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok || !payload?.ok) throw new Error(payload?.error || `reset failed (${res.status})`);
+      setNotice(`${payload?.message || 'Reset complete'} (${payload?.remaining ?? 0} receipts remaining)`);
       await load();
     } catch (e: any) {
       setError(e?.message || 'Reset demo failed');
@@ -80,6 +84,7 @@ export default function InboxList() {
     <div className="grid two-col">
       {loading && <div className="card">Loading…</div>}
       {error && <div className="card banner warn">{error}</div>}
+      {notice && <div className="card banner">{notice}</div>}
       <div className="card">
         <div className="nav">
           <button className={statusFilter === 'needs_review' ? 'button' : 'button ghost'} onClick={() => setStatusFilter('needs_review')}>
