@@ -43,9 +43,6 @@ export async function POST(req: Request) {
     const duplicate = canCheckDuplicate(parsed)
       ? await findDuplicate(parsed.vendor || null, parsed.date || null, parsed.amount ?? null)
       : null;
-    if (duplicate) {
-      return NextResponse.json({ error: 'duplicate receipt detected', status: 'duplicate' }, { status: 409 });
-    }
 
     const receiptId = cryptoRandomId('rcpt');
     await createReceiptWithId(receiptId, user.id, `uploads/${receiptId}-${file.name}`, 'processing');
@@ -53,7 +50,7 @@ export async function POST(req: Request) {
 
     setTimeout(async () => {
       try {
-        const policy = evaluateReceipt(parsed, parsed.confidenceScore, false);
+        const policy = evaluateReceipt(parsed, parsed.confidenceScore, Boolean(duplicate));
         await updateReceipt(receiptId, {
           status: policy.decision === 'approved' ? 'approved' : 'needs_review',
           vendor: parsed.vendor || null,
